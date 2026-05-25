@@ -92,4 +92,339 @@
     .or-text{font-size:13px;line-height:1.6;font-style:italic;}
     .rx-report-box{background:var(--bg-secondary);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem;font-size:14px;line-height:1.8;}
     .rx-report-box h3{font-family:'DM Serif Display',serif;font-size:17px;font-weight:400;margin:1.5rem 0 0.5rem;}
-    .rx-report-box p{marg
+    .rx-report-box p{margin-bottom:1rem;}
+    .rx-report-box strong{font-weight:500;}
+    .notes-textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-family:'DM Sans',sans-serif;font-size:13px;line-height:1.6;background:var(--bg-primary);color:var(--text-primary);outline:none;resize:vertical;min-height:80px;transition:border-color 0.2s;}
+    .notes-textarea:focus{border-color:var(--green);}
+    .notes-saved{font-size:11px;color:var(--green);margin-top:4px;display:none;align-items:center;gap:4px;}
+    .action-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .action-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-md);font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-secondary);font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+    .action-btn:hover{border-color:var(--green);color:var(--green);}
+    .action-btn.primary{background:var(--green);color:#fff;border-color:var(--green);}
+    .action-btn.primary:hover{background:var(--green-dark);}
+    .action-btn:disabled{opacity:0.6;cursor:not-allowed;}
+    .status-select{padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-md);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg-primary);color:var(--text-primary);outline:none;cursor:pointer;}
+    .debrief-output{background:var(--bg-secondary);border-radius:var(--radius-lg);padding:1.25rem;margin-top:1rem;font-size:14px;line-height:1.8;display:none;}
+    .debrief-output h3{font-family:'DM Serif Display',serif;font-size:17px;font-weight:400;margin:1.5rem 0 0.5rem;}
+    .debrief-output p{margin-bottom:1rem;}
+    .debrief-output strong{font-weight:500;}
+    .debrief-spinner{width:24px;height:24px;border:2px solid var(--green-light);border-top-color:var(--green);border-radius:50%;display:inline-block;animation:spin 0.8s linear infinite;margin-right:8px;vertical-align:middle;}
+    .no-results{color:var(--text-tertiary);font-size:14px;text-align:center;padding:2rem 0;}
+    .divider{height:1px;background:var(--border-light);margin:1.25rem 0;}
+  </style>
+</head>
+<body>
+<div class="db">
+  <h1 class="sr-only">SignalRx Consultant Dashboard — SignalRev Systems</h1>
+  <div class="hdr">
+    <div class="hdr-top">
+      <div class="logo">
+        <span class="logo-s">Signal</span><span class="logo-r">Rx</span>
+        <span class="logo-tag">Consultant Dashboard</span>
+      </div>
+      <div class="hdr-right">
+        <span class="badge"><i class="ti ti-shield-check" style="font-size:12px"></i> SignalRev Systems</span>
+        <div class="view-toggle">
+          <button class="vt-btn active" id="vt-pipeline" onclick="switchPanel('pipeline',this)" type="button">Pipeline</button>
+          <button class="vt-btn" id="vt-detail" onclick="switchPanel('detail',this)" type="button">Detail view</button>
+        </div>
+      </div>
+    </div>
+    <div class="search-row">
+      <div class="search-icon-box"><i class="ti ti-search"></i></div>
+      <input class="search-input" id="search-input" type="text" placeholder="Search by name or organization..." oninput="renderPipeline()"/>
+    </div>
+  </div>
+  <div class="stat-row">
+    <div class="stat-card"><div class="stat-lbl">Total diagnostics</div><div class="stat-val" id="stat-total">—</div><div class="stat-sub">All time</div></div>
+    <div class="stat-card"><div class="stat-lbl">Follow-up flagged</div><div class="stat-val" id="stat-flags" style="color:#EF9F27;">—</div><div class="stat-sub">Needs attention</div></div>
+    <div class="stat-card"><div class="stat-lbl">Avg signal score</div><div class="stat-val" id="stat-avg">—</div><div class="stat-sub">Out of 200</div></div>
+    <div class="stat-card"><div class="stat-lbl">Debrief ready</div><div class="stat-val" id="stat-ready" style="color:#1D9E75;">—</div><div class="stat-sub">Rx generated</div></div>
+  </div>
+  <div class="panel active" id="panel-pipeline">
+    <div class="pipeline-wrap">
+      <div class="pipe-filters">
+        <button class="filter-btn active" onclick="filterClients('all',this)" type="button">All clients</button>
+        <button class="filter-btn" onclick="filterClients('follow-up',this)" type="button"><i class="ti ti-flag" style="font-size:12px"></i> Flagged</button>
+        <button class="filter-btn" onclick="filterClients('new',this)" type="button">New</button>
+        <button class="filter-btn" onclick="filterClients('debrief-scheduled',this)" type="button">Debrief scheduled</button>
+        <button class="filter-btn" onclick="filterClients('rx-delivered',this)" type="button">Rx delivered</button>
+        <button class="filter-btn" onclick="filterClients('engaged',this)" type="button">Engaged</button>
+      </div>
+      <div id="client-list"><div class="loading-state"><div class="spinner"></div>Loading your clients...</div></div>
+    </div>
+  </div>
+  <div class="panel" id="panel-detail">
+    <div class="detail-wrap" id="detail-content">
+      <p class="no-results">Select a client from the pipeline to view their full diagnostic detail.</p>
+    </div>
+  </div>
+</div>
+<script>
+const LABELS=["Leadership","KPI Arch.","Signal Clarity","Consumer Loops","Ops Flow","Trust Equity","PPI & Auth.","Ecosystem"];
+const SCORE_KEYS=["score_leadership","score_kpi","score_signal","score_consumer","score_ops","score_trust","score_ppi","score_ecosystem"];
+const OPEN_KEYS=["open_leadership","open_kpi","open_signal","open_consumer","open_ops","open_trust","open_ppi","open_ecosystem"];
+let allClients=[],currentFilter='all',currentClientId=null;
+
+function getTier(s){
+  if(s>=170)return{label:'Ecosystem Ready',bg:'#E1F5EE',col:'#085041'};
+  if(s>=130)return{label:'Signal Fragmented',bg:'#FAEEDA',col:'#633806'};
+  if(s>=90)return{label:'Silo Farm Active',bg:'#FAECE7',col:'#712B13'};
+  return{label:'Signal Failure',bg:'#FCEBEB',col:'#791F1F'};
+}
+function getScoreColor(s){if(s>=21)return'#1D9E75';if(s>=16)return'#EF9F27';if(s>=11)return'#D85A30';return'#E24B4A';}
+function getStatusStyle(s){
+  const map={'new':{bg:'#E6F1FB',col:'#0C447C',label:'New'},'rx-generated':{bg:'#E1F5EE',col:'#085041',label:'Rx generated'},'debrief-scheduled':{bg:'#FAEEDA',col:'#633806',label:'Debrief scheduled'},'rx-delivered':{bg:'#EAF3DE',col:'#27500A',label:'Rx delivered'},'engaged':{bg:'#EEEDFE',col:'#3C3489',label:'Engaged'}};
+  return map[s]||map['new'];
+}
+function getInitials(n){return(n||'?').split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase();}
+function getAvatarColor(id){const c=[{bg:'#E6F1FB',col:'#0C447C'},{bg:'#EEEDFE',col:'#3C3489'},{bg:'#E1F5EE',col:'#085041'},{bg:'#FAEEDA',col:'#633806'}];const h=id?id.charCodeAt(0):0;return c[h%c.length];}
+function formatDate(d){if(!d)return'';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+
+async function loadClients(){
+  try{
+    const res=await fetch('/api/clients');
+    const data=await res.json();
+    if(Array.isArray(data)){
+      allClients=data;
+      renderPipeline();
+      updateStats();
+    }else{
+      document.getElementById('client-list').innerHTML='<p class="no-results">No clients yet. Share your diagnostic link to get started!</p>';
+    }
+  }catch(err){
+    document.getElementById('client-list').innerHTML='<p class="no-results">Error loading clients. Please refresh.</p>';
+  }
+}
+
+function renderPipeline(){
+  const q=(document.getElementById('search-input').value||'').toLowerCase();
+  const filtered=allClients.filter(c=>{
+    const ms=!q||(c.name||'').toLowerCase().includes(q)||(c.org||'').toLowerCase().includes(q)||(c.industry||'').toLowerCase().includes(q);
+    const mf=currentFilter==='all'||(currentFilter==='follow-up'?c.flagged:c.status===currentFilter);
+    return ms&&mf;
+  });
+  const list=document.getElementById('client-list');
+  if(filtered.length===0){list.innerHTML='<p class="no-results">No clients match your search or filter.</p>';return;}
+  list.innerHTML=filtered.map(c=>renderClientCard(c)).join('');
+}
+
+function renderClientCard(c){
+  const scores=SCORE_KEYS.map(k=>c[k]||0);
+  const total=c.total_score||scores.reduce((a,b)=>a+b,0);
+  const tier=getTier(total);
+  const st=getStatusStyle(c.status);
+  const av=getAvatarColor(c.id);
+  return`<div class="client-card${currentClientId===c.id?' selected':''}" onclick="openDetail('${c.id}')" id="card-${c.id}">
+    <div class="cc-top">
+      <div class="cc-left">
+        <div class="avatar" style="background:${av.bg};color:${av.col};">${getInitials(c.name)}</div>
+        <div><div class="cc-name">${c.name||'Unknown'}</div><div class="cc-org">${c.org||'—'} · ${c.role||'—'} · ${c.org_size||'—'}</div></div>
+      </div>
+      <div class="cc-right">
+        <div><span class="score-big">${total}</span><span class="score-of">/200</span></div>
+        <div class="tier-pill" style="background:${tier.bg};color:${tier.col};">${tier.label}</div>
+      </div>
+    </div>
+    <div class="cc-mid">${LABELS.map((l,i)=>{const s=scores[i];const pct=Math.round((s/25)*100);const col=getScoreColor(s);return`<div class="mini-score"><div class="mini-lbl">${l}</div><div class="mini-val" style="color:${col};">${s}</div><div class="mini-bar"><div class="mini-fill" style="width:${pct}%;background:${col};"></div></div></div>`;}).join('')}</div>
+    <div class="cc-bottom">
+      <div class="cc-meta">
+        <div class="meta-item"><i class="ti ti-calendar" style="font-size:12px"></i>${formatDate(c.created_at)}</div>
+        <div class="meta-item"><i class="ti ti-building" style="font-size:12px"></i>${c.industry||'—'}</div>
+        ${c.email?`<div class="meta-item"><i class="ti ti-mail" style="font-size:12px"></i>${c.email}</div>`:''}
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="flag-btn${c.flagged?' flagged':''}" onclick="toggleFlag(event,'${c.id}',${!c.flagged})" type="button"><i class="ti ti-flag" style="font-size:12px"></i>${c.flagged?'Flagged':'Flag'}</button>
+        <span class="status-pill" style="background:${st.bg};color:${st.col};">${st.label}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function updateStats(){
+  const total=allClients.length;
+  const flags=allClients.filter(c=>c.flagged).length;
+  const avg=total>0?Math.round(allClients.reduce((a,c)=>a+(c.total_score||0),0)/total):0;
+  const ready=allClients.filter(c=>c.status==='rx-generated'||c.status==='debrief-scheduled').length;
+  document.getElementById('stat-total').textContent=total;
+  document.getElementById('stat-flags').textContent=flags;
+  document.getElementById('stat-avg').textContent=avg||'—';
+  document.getElementById('stat-ready').textContent=ready;
+}
+
+async function toggleFlag(e,id,newVal){
+  e.stopPropagation();
+  const c=allClients.find(x=>x.id===id);
+  if(!c)return;
+  c.flagged=newVal;
+  renderPipeline();
+  updateStats();
+  if(currentClientId===id)openDetail(id);
+  await fetch('/api/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,flagged:newVal})});
+}
+
+function filterClients(filter,btn){
+  currentFilter=filter;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPipeline();
+}
+
+function switchPanel(panel,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+panel).classList.add('active');
+  document.querySelectorAll('.vt-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+}
+
+function openDetail(id){
+  currentClientId=id;
+  const c=allClients.find(x=>x.id===id);
+  if(!c)return;
+  const scores=SCORE_KEYS.map(k=>c[k]||0);
+  const total=c.total_score||scores.reduce((a,b)=>a+b,0);
+  const tier=getTier(total);
+  const statusOptions=['new','rx-generated','debrief-scheduled','rx-delivered','engaged'];
+  const rxHtml=c.rx_report?`<div class="rx-report-box">${c.rx_report.replace(/###\s+(.+)/g,'<h3>$1</h3>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').split('\n\n').filter(p=>p.trim()).map(p=>p.startsWith('<h3>')?p:`<p>${p.replace(/\n/g,' ')}</p>`).join('')}</div>`:'<p style="font-size:13px;color:var(--text-tertiary);font-style:italic;">No Rx report generated yet.</p>';
+
+  document.getElementById('detail-content').innerHTML=`
+    <button class="detail-back" onclick="goBackToPipeline()" type="button"><i class="ti ti-arrow-left" style="font-size:14px"></i> Back to pipeline</button>
+    <div class="detail-header">
+      <div>
+        <div class="detail-org">${c.org||'Unknown Organization'}</div>
+        <div class="detail-meta-txt">${c.name||'—'} · ${c.role||'—'} · ${c.org_size||'—'} · ${c.industry||'—'} · ${formatDate(c.created_at)}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="detail-score-num">${total}<span style="font-size:16px;color:var(--text-tertiary);">/200</span></div>
+        <div class="detail-score-tier" style="background:${tier.bg};color:${tier.col};">${tier.label}</div>
+      </div>
+    </div>
+    <div style="margin-bottom:1.5rem;">
+      <div class="section-title">Contact information</div>
+      <div class="contact-grid">
+        <div class="contact-card"><i class="ti ti-mail contact-icon"></i><div><div class="contact-lbl">Email</div><div class="contact-val">${c.email?`<a href="mailto:${c.email}">${c.email}</a>`:'—'}</div></div></div>
+        <div class="contact-card"><i class="ti ti-phone contact-icon"></i><div><div class="contact-lbl">Phone</div><div class="contact-val">${c.phone||'—'}</div></div></div>
+      </div>
+    </div>
+    <div style="margin-bottom:1.5rem;">
+      <div class="section-title">Category scores</div>
+      <div class="scores-8">${LABELS.map((l,i)=>{const s=scores[i];const pct=Math.round((s/25)*100);const col=getScoreColor(s);return`<div class="score8-card"><div class="score8-cat">${l}</div><div><span class="score8-val">${s}</span><span class="score8-denom">/25</span></div><div class="score8-bar"><div class="score8-fill" style="width:${pct}%;background:${col};"></div></div></div>`;}).join('')}</div>
+    </div>
+    <div style="margin-bottom:1.5rem;">
+      <div class="section-title">Open responses</div>
+      ${OPEN_KEYS.map((k,i)=>`<div class="or-item"><div class="or-cat">${LABELS[i]}</div><div class="or-text">"${c[k]||'No response'}"</div></div>`).join('')}
+    </div>
+    <div style="margin-bottom:1.5rem;">
+      <div class="section-title">SignalRx report</div>
+      ${rxHtml}
+    </div>
+    <div style="margin-bottom:1.5rem;">
+      <div class="section-title">Consultant notes</div>
+      <textarea class="notes-textarea" id="notes-${c.id}" placeholder="Add your notes, reactions, and next steps here..." oninput="saveNote('${c.id}',this.value)">${c.notes||''}</textarea>
+      <div class="notes-saved" id="notes-saved-${c.id}"><i class="ti ti-check" style="font-size:12px"></i> Saved</div>
+    </div>
+    <div class="action-row">
+      <select class="status-select" onchange="updateStatus('${c.id}',this.value)" aria-label="Update status">
+        ${statusOptions.map(s=>{const ss=getStatusStyle(s);return`<option value="${s}"${c.status===s?' selected':''}>${ss.label}</option>`;}).join('')}
+      </select>
+      <button class="action-btn${c.flagged?' flagged':''}" onclick="toggleFlag(event,'${c.id}',${!c.flagged})" type="button"><i class="ti ti-flag" style="font-size:14px"></i>${c.flagged?'Remove flag':'Flag for follow-up'}</button>
+      <button class="action-btn primary" id="debrief-btn-${c.id}" onclick="prepDebrief('${c.id}')" type="button"><i class="ti ti-brain" style="font-size:14px"></i> Prep debrief with AI</button>
+    </div>
+    <div class="debrief-output" id="debrief-output-${c.id}"></div>`;
+
+  switchPanel('detail',document.getElementById('vt-detail'));
+  window.scrollTo(0,0);
+}
+
+async function prepDebrief(id){
+  const c=allClients.find(x=>x.id===id);
+  if(!c)return;
+  const btn=document.getElementById(`debrief-btn-${id}`);
+  const output=document.getElementById(`debrief-output-${id}`);
+  btn.disabled=true;
+  btn.innerHTML='<span class="debrief-spinner"></span> Preparing...';
+  output.style.display='block';
+  output.innerHTML='<div style="color:var(--text-tertiary);font-size:13px;"><span class="debrief-spinner"></span> Analyzing diagnostic data and preparing your debrief...</div>';
+
+  const scores=SCORE_KEYS.map(k=>c[k]||0);
+  const total=c.total_score||scores.reduce((a,b)=>a+b,0);
+  const tier=getTier(total);
+  const lowestThree=LABELS.map((l,i)=>({l,s:scores[i]})).sort((a,b)=>a.s-b.s).slice(0,3).map(x=>`${x.l}: ${x.s}/25`).join(', ');
+  const openSummary=OPEN_KEYS.map((k,i)=>`${LABELS[i]}: "${c[k]||'no response'}"`).join('\n');
+
+  const prompt=`You are a senior consultant at SignalRev Systems preparing for a client debrief session. You are reviewing the SignalRx diagnostic results for ${c.name} at ${c.org}.
+
+DIAGNOSTIC SUMMARY:
+Overall score: ${total}/200 (${tier.label})
+Organization size: ${c.org_size}
+Industry: ${c.industry}
+Lowest scoring categories: ${lowestThree}
+
+ALL SCORES:
+${LABELS.map((l,i)=>`${l}: ${scores[i]}/25`).join('\n')}
+
+OPEN RESPONSES:
+${openSummary}
+
+YOUR TASK:
+Help the consultant prepare for this debrief. Provide:
+
+### How to Open the Session
+Write the exact opening question or statement to use — something that references their own words back to them and immediately creates trust and resonance.
+
+### The 3 Most Important Things to Address
+For each of the 3 most critical issues: what it means for this specific organization, what language will land hardest with this client, and the key reframe to deliver.
+
+### The Thread That Connects Everything
+One insight that ties all the issues together — the single underlying dynamic that explains the whole pattern.
+
+### Watch Out For
+One objection or dynamic to anticipate in the room and how to handle it.
+
+Write in a direct, confident, consultant-to-consultant tone. This is prep material, not a client document. Under 700 words.`;
+
+  try{
+    const res=await fetch('/api/debrief',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:prompt}]})});
+    const data=await res.json();
+    const text=data.content.map(b=>b.text||'').join('');
+    const html=text.replace(/###\s+(.+)/g,'<h3>$1</h3>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').split('\n\n').filter(p=>p.trim()).map(p=>p.startsWith('<h3>')?p:`<p>${p.replace(/\n/g,' ')}</p>`).join('');
+    output.innerHTML=html;
+    btn.disabled=false;
+    btn.innerHTML='<i class="ti ti-brain" style="font-size:14px"></i> Prep debrief with AI';
+  }catch(err){
+    output.innerHTML='<p style="color:#791F1F;font-size:13px;">Error generating debrief prep. Please try again.</p>';
+    btn.disabled=false;
+    btn.innerHTML='<i class="ti ti-brain" style="font-size:14px"></i> Prep debrief with AI';
+  }
+}
+
+let saveTimers={};
+function saveNote(id,val){
+  const c=allClients.find(x=>x.id===id);
+  if(c)c.notes=val;
+  clearTimeout(saveTimers[id]);
+  saveTimers[id]=setTimeout(async()=>{
+    await fetch('/api/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,notes:val})});
+    const saved=document.getElementById('notes-saved-'+id);
+    if(saved){saved.style.display='flex';setTimeout(()=>{saved.style.display='none';},2000);}
+  },1000);
+}
+
+async function updateStatus(id,val){
+  const c=allClients.find(x=>x.id===id);
+  if(c)c.status=val;
+  updateStats();
+  renderPipeline();
+  await fetch('/api/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status:val})});
+}
+
+function goBackToPipeline(){
+  currentClientId=null;
+  switchPanel('pipeline',document.getElementById('vt-pipeline'));
+  renderPipeline();
+}
+
+loadClients();
+</script>
+</body>
+</html>
